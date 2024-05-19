@@ -56,21 +56,24 @@ class APIKeyGenerationView(APIView):
         if serializer.is_valid():
             user = request.user
             event_name = serializer.validated_data['event_name']
-            event_id = serializer.validated_data['event_id']
+
+            # Check if an API key already exists for the given user, event_name, and non-null event_id
+            existing_api_key = APIKey.objects.filter(user=user, event_name=event_name, event_id__isnull=False).first()
+
+            if existing_api_key:
+                return Response({'detail': 'API key already exists for this user and event.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            api_key_obj = APIKey(user=user, event_name=event_name)
+            
             timestamp = int(time.time())
-            unique_identifier = f"{user.username}-{event_id}-{event_name}-{timestamp}"
+            unique_identifier = f"{user.username}-{api_key_obj.event_id}-{event_name}-{timestamp}"
             hashed_value = hashlib.sha256(unique_identifier.encode()).digest()
             api_key = base64.b64encode(hashed_value).decode()
 
-            api_key_obj, created = APIKey.objects.get_or_create(
-                user=user,
-                defaults={'event_name': event_name, 'event_id': event_id, 'api_key': api_key}
-            )
+            api_key_obj.api_key = api_key
+            api_key_obj.save()
 
-            if not created:
-                return Response({'detail': 'API key already exists for this user.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            return Response({'api_key': api_key}, status=status.HTTP_201_CREATED)
+            return Response({'api_key': api_key, 'event_id': api_key_obj.event_id}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -33,4 +33,4 @@ class UserLoginSerializer(serializers.ModelSerializer):
 class APIKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
-        fields = ['event_name', 'event_id']
+        fields = ['event_name']
